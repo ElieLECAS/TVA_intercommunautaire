@@ -64,7 +64,11 @@ def _valider_dk(numero: str) -> tuple[str, str]:
 
 
 def _valider_be(numero: str) -> tuple[str, str]:
-    if not re.fullmatch(r"\d{10}", numero):
+    # Depuis 2008 le format est sur 10 chiffres et le premier chiffre doit
+    # etre 0 ou 1 (confirme empiriquement : VIES rejette un numero au
+    # checksum correct mais commencant par un autre chiffre - cf.
+    # journal-de-bord.md, test du 2026-09-10).
+    if not re.fullmatch(r"[01]\d{9}", numero):
         return VERDICT_INVALIDE, "format_incorrect"
     base, cle = int(numero[:8]), int(numero[8:])
     attendu = 97 - (base % 97)
