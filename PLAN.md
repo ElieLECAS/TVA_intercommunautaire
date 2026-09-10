@@ -9,8 +9,10 @@
 - Colonnes : `id, raison_sociale, pays_declare, numero_tva, date_saisie, source_saisie`.
 
 **Absent du dossier projet, à récupérer avant de coder pour de vrai** :
-- `docker-compose.yml` (PostgreSQL) — lien fourni dans le brief.
-- **Le module de validation structurelle** — le brief dit explicitement qu'il est fourni ("Lisez-le : vous devrez expliquer en soutenance..."), mais il n'apparaît pas dans la liste de ressources que vous m'avez donnée (seuls csv/xlsx/docker-compose y figurent). Il est probablement dans un kit de démarrage zippé sur Simplonline, à côté du csv/xlsx. **Premier réflexe : retournez vérifier la page du brief sur la plateforme pour le télécharger** — sans lui, toute la phase 1 est bloquée (on ne va pas réécrire les specs de 10 pays, ce serait exactement le piège que le brief dit vouloir éviter).
+- ~~`docker-compose.yml`~~ — fait : `docker-compose.yml` à la racine, Postgres seul (image `postgres:16`), port hôte 5433 (5432 était déjà pris par un autre conteneur local, `bouquineo-db` — non touché).
+- **Le module de validation structurelle** — toujours absent. Le brief dit explicitement qu'il est fourni, mais il n'apparaît pas dans la liste de ressources donnée (seuls csv/xlsx/docker-compose y figurent). Point d'intégration prêt dans [app/structural_validation.py](app/structural_validation.py) : tant qu'il n'est pas branché, toute ligne d'un pays couvert reçoit `indetermine`/`module_non_branche` plutôt qu'un faux verdict. **Toujours à récupérer sur la page Simplonline du brief.**
+
+**Outillage** : gestion Python migrée sur `uv` (`pyproject.toml` + `uv.lock`, commande `uv sync` / `uv run ...`) plutôt que venv+pip.
 
 ## 1. Ce que le brief demande vraiment
 
@@ -21,16 +23,14 @@
 - Un verdict a une durée de vie : il faut décider et justifier un TTL, pas juste horodater.
 - Tout doit être rejouable : chargement idempotent (aucun doublon au rechargement), rapport reproductible par une commande, stack lancée par une commande, README suivi à la lettre depuis un clone vierge.
 
-## 2. Premier coup d'œil sur les données
+## 2. Premier coup d'œil sur les données — confirmé par `exploration/explore_referentiel.py`
 
-Je n'ai pas fait votre exploration de phase 1 à votre place (c'est un livrable noté, "combien de pays distincts", etc. — à vous de le faire et de le justifier). J'ai juste vérifié deux ou trois choses pour ancrer le plan dans la réalité du fichier plutôt que dans des suppositions :
+- **10 000 lignes**, 15 codes `pays_declare` distincts. 10 couverts par le module (`FR, DK, BE, LU, SE, PT, NL, IT, PL, FI`, ~900-975 occurrences chacun) + **5 hors liste** : `ZZ` (115), `QQ` (109), `GB` (104), `UK` (104), `XX` (87) — **519 lignes (5,2 %)** qu'aucune règle du module ne couvre. Traitées comme `indetermine`/`pays_non_couvert`, jamais comme un verdict du module.
+- **114 valeurs vides sous 2 formes distinctes** : chaîne vide (59), `"-"` (55).
+- **13,4 % des lignes (1335)** portent un caractère non alphanumérique dans `numero_tva` (espaces, points, tirets — ex. `SE.751298146001`, `PL 7963 612947`).
+- **Doublons** : 651 lignes partagent (raison_sociale, numero_tva brut) à l'identique ; après normalisation complète (même pays + numéro nettoyé), le chiffre retombe à **438** — les deux définitions ne donnent pas le même nombre, exactement le genre d'écart que le brief demande de justifier (cf. journal-de-bord.md).
 
-- **10 000 lignes de données confirmées** (10 001 avec l'en-tête).
-- **`pays_declare` contient bien 10 codes qui reviennent souvent** (entre ~900 et ~975 occurrences chacun) : `FR, DK, BE, LU, SE, PT, NL, IT, PL, FI`. Ça correspond très probablement aux "dix pays du jeu" couverts par le module.
-- **Mais `pays_declare` contient aussi `GB`, `UK`, `ZZ`, `QQ`, `XX`**, environ 519 lignes cumulées (~5,2 % du fichier) — et **aucun de ces cinq codes ne fait partie des dix ci-dessus**. Autrement dit : `GB` n'est pas un des dix pays couverts par le module. Ce ne sont donc pas des cas "structurellement invalides" au sens du module — ce sont des cas que le module ne sait probablement même pas évaluer, faute de règles pour ce pays. Ça mérite une catégorie à part, décidée par vous, avant même de parler du verdict du module.
-- Sur le format brut (`numero_tva`) : dès les 30 premières lignes j'ai vu des espaces parasites (`"  NL505862176B88 "`), des séparateurs insérés (`SE.751298146001`, `SE-353056663101`), une valeur sentinelle (`"-"`), et au moins une paire de lignes quasi identiques (même raison sociale, même numéro, dates de saisie différentes) — cohérent avec "trois canaux qui ne se sont jamais parlé".
-
-Aucun de ces constats ne remplace votre profilage complet — il vous reste à faire le compte exact par pays, par format, par motif de vide, etc. Mais ça confirme que le fichier n'est pas propre et que la question des pays "hors liste" (GB/UK/ZZ/QQ/XX) sera une vraie décision à documenter, pas un détail.
+Le pipeline (`scripts/load_referentiel.py`) tourne : 10 000 lignes chargées, idempotence vérifiée (rechargement = toujours 10 000 lignes, 438 doublons, aucune duplication). Le verdict structurel reste `indetermine` partout tant que le vrai module n'est pas branché — c'est attendu, pas un bug.
 
 ## 3. Architecture proposée
 
@@ -121,8 +121,10 @@ Cette seule requête donne en même temps : le mode échantillon (LIMIT), la rep
 - Un rechargement de la base ne doit produire aucun doublon — ça se vérifie en rejouant le chargement deux fois.
 - Répartir les commits sur les deux jours est noté explicitement — ne pas tout committer le soir du J2.
 
-## 8. Prochaine étape
+## 8. État réel du J1 (mis à jour)
 
-1. Retrouvez/téléchargez le module de validation structurelle + `docker-compose.yml`.
-2. Validez ou ajustez les décisions de la section 6.
-3. Je scaffold le repo (structure, `docker-compose`, venv, premier commit) et on attaque le J1.
+Fait : scaffold repo (`uv`, docker-compose Postgres sur le port 5433), schéma versionné, normalisation, dédoublonnage, pipeline de chargement idempotent (10 000 lignes, 438 doublons, vérifié rejouable), exploration chiffrée, mesure de latence VIES (7 appels, tous `MS_MAX_CONCURRENT_REQ` — voir [journal-de-bord.md](journal-de-bord.md), décision : toujours lire `userError` avant `isValid`), 8 commits.
+
+**Reste bloquant pour clore le J1** : récupérer le vrai module de validation structurelle et le brancher dans [app/structural_validation.py](app/structural_validation.py) — sans lui, `verdict_structurel` reste `indetermine` partout, et la répartition par motif (item 9 du plan) ne veut rien dire de définitif.
+
+Prochaine étape : le module, puis on tranche les décisions de la section 6 pour de vrai (elles sont pour l'instant des valeurs par défaut, pas encore validées par vous), puis J2.
