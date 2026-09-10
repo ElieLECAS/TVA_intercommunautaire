@@ -25,7 +25,7 @@ CREATE INDEX IF NOT EXISTS idx_vat_numbers_verdict_structurel ON vat_numbers (ve
 -- de mécanisme de reprise (cf. requête de sélection du prochain lot dans PLAN.md §3).
 CREATE TABLE IF NOT EXISTS vies_verifications (
     id                  SERIAL PRIMARY KEY,
-    vat_number_id       INTEGER NOT NULL REFERENCES vat_numbers(id),
+    vat_number_id       INTEGER REFERENCES vat_numbers(id),  -- NULL si verifie via l'API sur un numero hors referentiel
     pays_interroge      TEXT NOT NULL,
     numero_interroge    TEXT NOT NULL,
     verdict             TEXT NOT NULL,               -- 'valide' | 'invalide' | 'indetermine'
@@ -35,5 +35,10 @@ CREATE TABLE IF NOT EXISTS vies_verifications (
     latency_ms           INTEGER
 );
 
+-- Au cas ou la table existe deja depuis une version anterieure du schema
+-- (vat_number_id etait NOT NULL) : rejouable sans erreur.
+ALTER TABLE vies_verifications ALTER COLUMN vat_number_id DROP NOT NULL;
+
 CREATE INDEX IF NOT EXISTS idx_vies_verifications_vat_number_id ON vies_verifications (vat_number_id);
 CREATE INDEX IF NOT EXISTS idx_vies_verifications_checked_at ON vies_verifications (checked_at);
+CREATE INDEX IF NOT EXISTS idx_vies_verifications_pays_numero ON vies_verifications (pays_interroge, numero_interroge);
