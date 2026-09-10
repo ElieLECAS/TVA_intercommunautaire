@@ -1,0 +1,18 @@
+[project]
+name = "tva-intercommunautaire"
+version = "0.1.0"
+description = "Validation du référentiel de TVA intracommunautaire (structurelle + VIES)"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "psycopg[binary]",
+    "httpx",
+    "pandas",
+    "openpyxl",
+    "python-dotenv",
+    "pydantic",
+]
+
+[tool.uv]
+package = false
