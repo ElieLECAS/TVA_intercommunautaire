@@ -8,9 +8,9 @@
 - `numeros-tva-*.csv` et `.xlsx` — mêmes données, 10 000 lignes + en-tête.
 - Colonnes : `id, raison_sociale, pays_declare, numero_tva, date_saisie, source_saisie`.
 
-**Absent du dossier projet, à récupérer avant de coder pour de vrai** :
+**Absent du dossier projet** :
 - ~~`docker-compose.yml`~~ — fait : `docker-compose.yml` à la racine, Postgres seul (image `postgres:16`), port hôte 5433 (5432 était déjà pris par un autre conteneur local, `bouquineo-db` — non touché).
-- **Le module de validation structurelle** — toujours absent. Le brief dit explicitement qu'il est fourni, mais il n'apparaît pas dans la liste de ressources donnée (seuls csv/xlsx/docker-compose y figurent). Point d'intégration prêt dans [app/structural_validation.py](app/structural_validation.py) : tant qu'il n'est pas branché, toute ligne d'un pays couvert reçoit `indetermine`/`module_non_branche` plutôt qu'un faux verdict. **Toujours à récupérer sur la page Simplonline du brief.**
+- **Le module de validation structurelle** — **confirmé inexistant par le formateur** (Guillaume Soulat) : le brief l'annonce comme fourni, il ne l'a jamais été pour cette session. Pas un fichier perdu, un manque réel du brief lui-même — à mentionner tel quel en soutenance, c'est un fait, pas une excuse. **Décision retenue** : [app/structural_module_substitut.py](app/structural_module_substitut.py), un module écrit à partir des algorithmes de clé de contrôle publiquement documentés pour les 10 pays — explicitement nommé "substitut", jamais présenté comme "le module fourni". Vérifié contre une source de vérité réelle pour la France (le numéro d'exemple du brief, confirmé par VIES en direct comme celui de SA DANONE) ; pour les 9 autres pays, ce sont les formules standard, non re-vérifiées individuellement contre une source officielle par pays — à assumer comme limite connue.
 
 **Outillage** : gestion Python migrée sur `uv` (`pyproject.toml` + `uv.lock`, commande `uv sync` / `uv run ...`) plutôt que venv+pip.
 
