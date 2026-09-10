@@ -15,14 +15,25 @@ valide" ici veut dire "format + clé de contrôle conformes à l'algorithme
 public standard", pas "vérifié contre la spécification officielle de
 l'administration fiscale de chaque État".
 
-Limites connues, à assumer telles quelles :
-- FR : la formule utilisée est la formule standard (clé = (12 + 3*SIREN) mod
-  97). Un petit nombre de numéros historiques utilisent une clé non
+Limites connues, à assumer telles quelles (voir journal-de-bord.md pour le
+détail des tests qui les ont révélées) :
+- FR : seule formule vérifiée contre une donnée réelle (SA DANONE, confirmée
+  par VIES). Un petit nombre de numéros historiques utilisent une clé non
   numérique et ne seront jamais validés par cette formule.
-- NL : depuis 2020, les entrepreneurs individuels (personnes physiques) ont
-  un numéro de TVA qui n'est PLUS dérivé par cette formule (changement
-  réglementaire pour raisons de vie privée) : un numéro NL réel de ce type
-  sera signalé à tort comme structurellement invalide par ce substitut.
+- BE : le premier chiffre doit être 0 ou 1 (format post-2008) — trouvé après
+  qu'un numéro au checksum correct mais mal préfixé soit passé à tort.
+- PT : le premier chiffre code le type de contribuable (1/2/3/5/6/8/9
+  uniquement) — trouvé de la même façon, sur un numéro réel du jeu de
+  données que VIES a rejeté alors que le checksum était correct.
+- LU, SE, NL, IT, PL, FI, DK : formules standard publiques, PAS vérifiées
+  contre VIES en conditions réelles (pour ne pas multiplier les appels).
+  Elles peuvent contenir le même genre de trou que BE/PT (une contrainte de
+  format annexe non capturée). Le signal pour le détecter existe déjà :
+  un `INVALID` de VIES sur une ligne que ce module a classée valide.
+- NL, spécifiquement : depuis 2020, les entrepreneurs individuels (personnes
+  physiques) ont un numéro de TVA qui n'est PLUS dérivé par cette formule
+  (changement réglementaire pour raisons de vie privée) : un numéro NL réel
+  de ce type sera signalé à tort comme structurellement invalide ici.
 """
 
 import re
@@ -97,7 +108,13 @@ def _valider_se(numero: str) -> tuple[str, str]:
 
 
 def _valider_pt(numero: str) -> tuple[str, str]:
-    if not re.fullmatch(r"\d{9}", numero):
+    # Le premier chiffre code le type de contribuable ; seules certaines
+    # valeurs sont attribuees (1/2/3 personnes physiques, 5 personnes
+    # morales, 6 administration, 8 entrepreneur individuel, 9 autres
+    # entites). Un checksum juste avec un premier chiffre hors de cet
+    # ensemble a ete rejete par VIES en test reel (cf. journal-de-bord.md) -
+    # meme classe de trou que le bug BE trouve juste avant.
+    if not re.fullmatch(r"[1235689]\d{8}", numero):
         return VERDICT_INVALIDE, "format_incorrect"
     poids = [9, 8, 7, 6, 5, 4, 3, 2]
     total = sum(int(c) * p for c, p in zip(numero[:8], poids))
