@@ -1,50 +1,42 @@
-"""Intégration du module de validation structurelle fourni (10 pays).
+"""Intégration de la validation structurelle (10 pays).
 
-STATUT ACTUEL : le fichier du module fourni par le brief n'est pas encore
-présent dans ce dépôt (voir PLAN.md §0 — à récupérer sur la page Simplonline
-du brief, il n'était pas dans les liens de ressources collés dans la
-conversation). Tant qu'il n'est pas branché ici, toute ligne appartenant à un
-pays couvert reçoit un verdict 'indetermine' / motif 'module_non_branche' —
-volontairement, pour ne jamais faire passer une absence d'outillage pour une
-invalidité (même principe que pour une indisponibilité VIES).
+STATUT : le module que le brief annonce comme fourni n'existe pas — confirmé
+par le formateur (Guillaume Soulat), après vérification que les ressources
+publiques de la Commission européenne n'en contiennent pas non plus le détail
+(voir PLAN.md §0 et journal-de-bord.md). Ce n'est pas un fichier égaré : le
+brief l'annonce, il n'a jamais été fourni pour cette session.
 
-Une fois le fichier récupéré :
-1. Le déposer dans ce dossier (ex. `app/structural_module_fourni.py`).
-2. Remplacer le corps de `_appeler_module_fourni` ci-dessous par l'appel réel
-   (adapter la signature à celle du module : il faudra lire son code pour
-   savoir s'il attend le numéro avec ou sans préfixe pays, etc. — cf. brief :
-   "Lisez-le : vous devrez expliquer en soutenance ce que 'structurellement
-   valide' recouvre").
-3. Cataloguer ici, en commentaire, chaque (verdict, motif) que le module peut
-   renvoyer et la décision prise pour chacun (PLAN.md §1 et §6).
+Ce fichier appelle donc `app/structural_module_substitut.py` : un module
+écrit à partir d'algorithmes de clé de contrôle publiquement documentés,
+explicitement nommé "substitut" et jamais présenté comme "le module fourni".
+
+Conséquence à assumer en soutenance : "structurellement valide" veut dire ici
+"conforme à l'algorithme public standard du pays", pas "vérifié contre un
+module remis par le brief" — puisqu'aucun n'a existé.
 """
 
-from app.normalize import pays_est_couvert
+from app.normalize import is_blank, pays_est_couvert
+from app.structural_module_substitut import valider as _valider_substitut
 
 VERDICT_VALIDE = "valide"
 VERDICT_INVALIDE = "invalide"
 VERDICT_INDETERMINE = "indetermine"
 
 
-def _appeler_module_fourni(pays: str, numero_normalise: str) -> tuple[str, str]:
-    # TODO : brancher le vrai module ici une fois récupéré. Voir docstring du fichier.
-    raise NotImplementedError("module de validation structurelle non branché")
+def _appeler_module(pays: str, numero_normalise: str) -> tuple[str, str]:
+    return _valider_substitut(pays, numero_normalise)
 
 
 def valider_structurellement(pays_declare: str | None, numero_normalise: str | None) -> tuple[str, str]:
     """Renvoie (verdict, motif) pour une ligne déjà normalisée.
 
     Ne lève jamais d'exception : les cas qu'on ne peut pas trancher (pays hors
-    liste, numéro absent, module indisponible) renvoient un verdict explicite
-    plutôt qu'une erreur.
+    liste, numéro absent) renvoient un verdict explicite plutôt qu'une erreur.
     """
-    if numero_normalise is None:
+    if is_blank(numero_normalise):
         return VERDICT_INVALIDE, "numero_absent"
 
     if not pays_est_couvert(pays_declare):
         return VERDICT_INDETERMINE, "pays_non_couvert"
 
-    try:
-        return _appeler_module_fourni(pays_declare, numero_normalise)
-    except NotImplementedError:
-        return VERDICT_INDETERMINE, "module_non_branche"
+    return _appeler_module(pays_declare, numero_normalise)
