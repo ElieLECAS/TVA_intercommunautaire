@@ -8,3 +8,6 @@ venv/
 logs/
 *.log
 .ipynb_checkpoints/
+
+# genere par scripts/generate_report.py - reproductible par une commande
+rapport_reconciliation.md
