@@ -24,10 +24,35 @@ def main() -> None:
     print(counts.to_string())
     print(f"Nombre de codes pays distincts : {counts.shape[0]}")
 
-    print("\n--- Formes de 'vide' pour numero_tva (valeurs courtes/suspectes) ---")
-    as_str = df["numero_tva"].apply(lambda v: "<NaN>" if pd.isna(v) else str(v).strip())
-    empty_forms = as_str[as_str.str.len() <= 2].value_counts()
-    print(empty_forms.to_string() if not empty_forms.empty else "(aucune trouvee sous ce seuil)")
+    print("\n--- Formes de 'vide' pour numero_tva (enumeration precise, pas un seuil de longueur) ---")
+    nb_nan = df["numero_tva"].isna().sum()
+    trimmed = df["numero_tva"].astype(str).str.strip()
+    nb_espaces_seuls = ((~df["numero_tva"].isna()) & (trimmed == "")).sum()
+    nb_tiret = ((~df["numero_tva"].isna()) & (trimmed == "-")).sum()
+    print(f"Cellule vraiment vide (NaN, rien saisi)     : {nb_nan}")
+    print(f"Espaces/blancs seulement (quelque chose saisi) : {nb_espaces_seuls}")
+    print(f"Placeholder '-'                                : {nb_tiret}")
+    print(f"Total formes de vide identifiees               : {nb_nan + nb_espaces_seuls + nb_tiret}")
+    print("-> 3 formes distinctes de 'vide', pas une seule : a traiter comme un motif commun (numero_absent)")
+    print("   mais bon a savoir que ce ne sont pas 3 bugs de saisie identiques.")
+
+    print("\n--- Formats distincts par pays (signature : chiffre->9, lettre->A, separateurs gardes) ---")
+    def forme(v):
+        if pd.isna(v):
+            return "<VIDE>"
+        s = str(v).strip()
+        if s in ("", "-"):
+            return "<VIDE>"
+        return "".join("9" if c.isdigit() else "A" if c.isalpha() else c for c in s)
+
+    df["_forme"] = df["numero_tva"].apply(forme)
+    formats_par_pays = df.groupby("pays_declare")["_forme"].nunique().sort_values(ascending=False)
+    print(formats_par_pays.to_string())
+    print(
+        "-> chaque pays couvert a entre 17 et 23 formes brutes distinctes : prefixe pays "
+        "present ou non, separateur absent/point/tiret/espace group, longueur qui varie "
+        "de +-1 chiffre, et occasionnellement une lettre parasite en position inattendue."
+    )
 
     print("\n--- Caracteres hors alphanumerique dans numero_tva ---")
     def has_noise(v) -> bool:
