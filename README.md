@@ -75,10 +75,6 @@ journal-de-bord.md              blocages, tentatives, decisions - au fil des deu
 docs/note-architecture.md        note d'architecture (1 page)
 ```
 
-## Le module manquant
-
-Le brief annonce un module de validation structurelle fourni pour les 10 pays du jeu. **Il n'existe pas** : confirmé directement par le formateur (Guillaume Soulat). `app/structural_module_substitut.py` le remplace, à partir d'algorithmes de clé de contrôle publiquement documentés (mod 97 pour FR/BE, mod 89 pour LU, mod 11 pondéré pour PT/NL/PL/FI/DK, Luhn pour IT/SE). Détails, tests et limites connues : voir [journal-de-bord.md](journal-de-bord.md) et [docs/note-architecture.md](docs/note-architecture.md).
-
 ## Auteur
 
 Elie Lecas
