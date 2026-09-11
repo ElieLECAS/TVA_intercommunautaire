@@ -9,8 +9,14 @@ de "vide".
 
 import glob
 import re
+import sys
+from pathlib import Path
 
 import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from app.normalize import is_blank, strip_noise  # noqa: E402
 
 CSV_PATH = glob.glob("data/numeros-tva-*.csv")[0]
 
@@ -24,17 +30,34 @@ def main() -> None:
     print(counts.to_string())
     print(f"Nombre de codes pays distincts : {counts.shape[0]}")
 
-    print("\n--- Formes de 'vide' pour numero_tva (enumeration precise, pas un seuil de longueur) ---")
+    print("\n--- Formes de 'vide' pour numero_tva (utilise app.normalize, la meme logique que le pipeline) ---")
     nb_nan = df["numero_tva"].isna().sum()
     trimmed = df["numero_tva"].astype(str).str.strip()
     nb_espaces_seuls = ((~df["numero_tva"].isna()) & (trimmed == "")).sum()
     nb_tiret = ((~df["numero_tva"].isna()) & (trimmed == "-")).sum()
-    print(f"Cellule vraiment vide (NaN, rien saisi)     : {nb_nan}")
+
+    def sentinelle_bruitee(v) -> bool:
+        # Capte par exemple "NU.LL" : une sentinelle connue (NULL) avec du
+        # bruit de saisie injecte, invisible tant qu'on ne nettoie pas avant
+        # de comparer. Trouve dans ce jeu de donnees (id 5937, BE).
+        if pd.isna(v) or is_blank(v):
+            return False
+        return is_blank(strip_noise(str(v).strip()))
+
+    bruitees = df["numero_tva"][df["numero_tva"].apply(sentinelle_bruitee)]
+    nb_bruitees = len(bruitees)
+
+    print(f"Cellule vraiment vide (NaN, rien saisi)        : {nb_nan}")
     print(f"Espaces/blancs seulement (quelque chose saisi) : {nb_espaces_seuls}")
     print(f"Placeholder '-'                                : {nb_tiret}")
-    print(f"Total formes de vide identifiees               : {nb_nan + nb_espaces_seuls + nb_tiret}")
-    print("-> 3 formes distinctes de 'vide', pas une seule : a traiter comme un motif commun (numero_absent)")
-    print("   mais bon a savoir que ce ne sont pas 3 bugs de saisie identiques.")
+    print(f"Sentinelle connue mais bruitee (ex. 'NU.LL')   : {nb_bruitees} {bruitees.tolist()}")
+    total = nb_nan + nb_espaces_seuls + nb_tiret + nb_bruitees
+    print(f"Total formes de vide identifiees               : {total}")
+    print(
+        f"-> {4 if nb_bruitees else 3} formes distinctes de 'vide' : a traiter comme un seul motif "
+        "commun (numero_absent), mais bon a savoir que ce ne sont pas des bugs de saisie identiques. "
+        f"Doit correspondre exactement au compte 'numero_absent' du pipeline reel ({total})."
+    )
 
     print("\n--- Formats distincts par pays (signature : chiffre->9, lettre->A, separateurs gardes) ---")
     def forme(v):
